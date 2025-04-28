@@ -19,13 +19,13 @@ class Trainer:
 
 
 if __name__ == "__main__":
-    trainer = Trainer(settings.DETECTIONS_MODEL_NAME)
-    print("Training started...")
-    # Start training
-    print(trainer.train(data=settings.DETECTION_DATASET, epochs=1, imgsz=640, batch_size=8))
-    print("Training finished.")
+    # trainer = Trainer(settings.DETECTIONS_MODEL_NAME)
+    # print("Training started...")
+    # # Start training
+    # print(trainer.train(data=settings.DETECTION_DATASET, epochs=1, imgsz=640, batch_size=8))
+    # print("Training finished.")
 
     trainer_keypoint = Trainer(settings.KEYPOINT_MODEL_NAME)
     print("Training started...")
-    print(trainer_keypoint.train(data=settings.KEYPOINT_DATASET, epochs=1, imgsz=640, batch_size=8))
+    print(trainer_keypoint.train(data=settings.KEYPOINT_DATASET, epochs=100, imgsz=640, batch_size=32))
     print("Training finished.")
