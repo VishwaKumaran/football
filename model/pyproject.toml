@@ -1,0 +1,22 @@
+[project]
+name = "model"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Vishwa Kumaran",email = "vishwaa33400@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "ultralytics (>=8.3.109,<9.0.0)",
+    "pydantic-settings (>=2.9.1,<3.0.0)",
+    "supervision (>=0.25.1,<0.26.0)",
+    "transformers[torch] (>=4.51.3,<5.0.0)",
+    "more-itertools (>=10.7.0,<11.0.0)",
+    "umap-learn (>=0.5.7,<0.6.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
