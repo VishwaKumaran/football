@@ -1,5 +1,7 @@
-from pathlib import Path
 import platform
+from pathlib import Path
+from typing import List
+
 from pydantic_settings import BaseSettings
 
 
@@ -17,10 +19,10 @@ class Settings(BaseSettings):
     GOALKEEPER_CLASS_ID: int = 1
     PLAYER_CLASS_ID: int = 2
     REFEREE_CLASS_ID: int = 3
-    COLORS_PLAYERS: list[str] = ["#1E90FF", "#FF4500"]
-    COLORS_BALL: list[str] = ["#FFFF00"]
-    COLORS_REFEREE: list[str] = ["#000000"]
-    COLORS_KEYPOINT: list[str] = ["#FFC0B0"]
+    COLORS_PLAYERS: List[str] = ["#1E90FF", "#FF4500"]
+    COLORS_BALL: List[str] = ["#FFFF00"]
+    COLORS_REFEREE: List[str] = ["#000000"]
+    COLORS_KEYPOINT: str = "#FFC0B0"
 
     BATCH_SIZE: int = 32
     TEAM_CLASSIFIER_MODEL_NAME: str = "google/siglip2-base-patch16-224"

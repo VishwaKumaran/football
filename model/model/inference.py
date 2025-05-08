@@ -1,9 +1,11 @@
 from random import shuffle
+
 import numpy as np
 import supervision as sv
 from ultralytics import YOLO
 
 from core import settings
+from model.pitch import Pitch
 from model.team_classifier import TeamClassifier
 
 
@@ -27,6 +29,7 @@ class Inference:
         return np.array(goalkeepers_teams)
 
     def detection(self, source_path: str, stride: int = 1):
+        pitch = Pitch()
         tracker = sv.ByteTrack()
         player_annotator = sv.EllipseAnnotator(sv.ColorPalette.from_hex(settings.COLORS_PLAYERS))
         referee_annotator = sv.EllipseAnnotator(sv.ColorPalette.from_hex(settings.COLORS_REFEREE))
@@ -34,7 +37,9 @@ class Inference:
         label_annotator = sv.LabelAnnotator(color=sv.ColorPalette.from_hex(settings.COLORS_PLAYERS),
                                             text_position=sv.Position.BOTTOM_CENTER, text_thickness=2)
 
-        vertex_annotator = sv.VertexAnnotator(sv.ColorPalette.from_hex(settings.COLORS_KEYPOINT))
+        vertex_annotator = sv.VertexAnnotator(sv.Color.from_hex(settings.COLORS_KEYPOINT))
+
+        edge_annotator = sv.EdgeAnnotator(sv.Color.from_hex("00BFFF"), thickness=2, edges=pitch.config.EDGES)
 
         crops = self.crop(source_path, stride)
         shuffle(crops)
@@ -57,9 +62,21 @@ class Inference:
             goalkeeper_detections.class_id = self.__goalkeeper_classification(player_detections, goalkeeper_detections)
 
             all_player_detections = sv.Detections.merge([player_detections, goalkeeper_detections])
+            all_player_detections.class_id = all_player_detections.class_id.astype(int)
 
             labels = [str(tracker_id) for tracker_id in all_player_detections.tracker_id]
+
+            filter = key_points.confidence[0] > 0.5
+            frame_reference_points = key_points.xy[0][filter]
+            pitch_reference_points = np.array(pitch.config.vertices)[filter]
+
+            transformer = pitch.get_transform(pitch_reference_points, frame_reference_points)
+            pitch_all_points = np.array(pitch.config.vertices)
+            frame_all_points = transformer(pitch_all_points)
+            frame_all_key_points = sv.KeyPoints(xy=frame_all_points[np.newaxis, ...])
+
             annotated_frame = player_annotator.annotate(frame.copy(), detections=all_player_detections)
+            annotated_frame = edge_annotator.annotate(annotated_frame, key_points=frame_all_key_points)
             annotated_frame = referee_annotator.annotate(annotated_frame, detections=referee_detections)
             annotated_frame = label_annotator.annotate(annotated_frame, detections=all_player_detections, labels=labels)
             annotated_frame = triangle_annotator.annotate(annotated_frame, detections=ball_detections)
@@ -67,10 +84,78 @@ class Inference:
 
         return callback
 
+    def homography(self, source_path: str, stride: int = 1, only_homography: bool = True):
+        pitch = Pitch()
+        tracker = sv.ByteTrack()
+
+        crops = self.crop(source_path, stride)
+        shuffle(crops)
+        team_classifier = TeamClassifier()
+        team_classifier.fit(crops)
+
+        def callback(frame: np.ndarray, _: int) -> np.ndarray:
+            results = self.__detection_model.predict(source=frame, verbose=False)[0]
+            keypoint_results = self.__keypoint_model.predict(source=frame, verbose=False)[0]
+            key_points = sv.KeyPoints.from_ultralytics(keypoint_results)
+            detections = sv.Detections.from_ultralytics(results)
+            detections = tracker.update_with_detections(detections)
+
+            player_detections = detections[detections.class_id == settings.PLAYER_CLASS_ID]
+            ball_detections = detections[detections.class_id == settings.BALL_CLASS_ID]
+            goalkeeper_detections = detections[detections.class_id == settings.GOALKEEPER_CLASS_ID]
+            referee_detections = detections[detections.class_id == settings.REFEREE_CLASS_ID]
+
+            player_crops = [sv.crop_image(frame, xyxy) for xyxy in player_detections.xyxy]
+            player_detections.class_id = team_classifier.predict(player_crops)
+            goalkeeper_detections.class_id = self.__goalkeeper_classification(player_detections, goalkeeper_detections)
+
+            player_goalkeeper_detections = sv.Detections.merge([player_detections, goalkeeper_detections])
+
+            mask = (key_points.xy[0][:, 0] > 1) & (key_points.xy[0][:, 1] > 1)
+            transformer = pitch.get_transform(key_points.xy[0], mask=mask)
+
+            frame_ball_xy = ball_detections.get_anchors_coordinates(sv.Position.BOTTOM_CENTER)
+            pitch_ball_xy = transformer(frame_ball_xy)
+
+            player_goalkeeper_xy = player_goalkeeper_detections.get_anchors_coordinates(sv.Position.BOTTOM_CENTER)
+            pitch_player_goalkeeper_xy = transformer(player_goalkeeper_xy)
+
+            referee_xy = referee_detections.get_anchors_coordinates(sv.Position.BOTTOM_CENTER)
+            pitch_referee_xy = transformer(referee_xy)
+
+            image = pitch.draw_points(pitch_ball_xy, face_color=sv.Color.WHITE, edge_color=sv.Color.BLACK)
+            image = pitch.draw_points(pitch_player_goalkeeper_xy[player_goalkeeper_detections.class_id == 0],
+                                      face_color=sv.Color.from_hex('00BFFF'), edge_color=sv.Color.BLACK, radius=16,
+                                      image=image)
+            image = pitch.draw_points(pitch_player_goalkeeper_xy[player_goalkeeper_detections.class_id == 1],
+                                      face_color=sv.Color.from_hex('FF1493'), edge_color=sv.Color.BLACK, radius=16,
+                                      image=image)
+            image = pitch.draw_points(pitch_referee_xy, face_color=sv.Color.from_hex('FFD700'),
+                                      edge_color=sv.Color.BLACK, radius=16, image=image)
+            h, w, _ = frame.shape
+
+            if only_homography:
+                return sv.resize_image(image, (w, h))
+
+            image = sv.resize_image(image, (w // 2, h // 2))
+            radar_h, radar_w, _ = image.shape
+            rect = sv.Rect(
+                x=w // 2 - radar_w // 2,
+                y=h - radar_h,
+                width=radar_w,
+                height=radar_h
+            )
+            return sv.draw_image(frame.copy(), image, 1, rect)
+
+        return callback
+    
+
     def crop(self, source_path: str, stride: int = 1):
         crops = []
         for frame in sv.get_video_frames_generator(source_path, stride):
             results = self.__detection_model.predict(source=frame)[0]
+            keypoint_results = self.__keypoint_model.predict(source=frame)[0]
+            key_points = sv.KeyPoints.from_ultralytics(keypoint_results)
             detections = sv.Detections.from_ultralytics(results)
             detections = detections[detections.class_id == settings.PLAYER_CLASS_ID]
 
@@ -81,6 +166,8 @@ class Inference:
     def __callback(self, type: str, **kwargs):
         if type == "detection":
             return self.detection(**kwargs)
+        elif type == "homography":
+            return self.homography(**kwargs)
         raise ValueError(f"Invalid callback type: {type}. Supported types are: detection")
 
     def process(self, source_path: str, target_path: str, callback: str, **kwargs):
@@ -94,13 +181,20 @@ class Inference:
 
 
 if __name__ == "__main__":
-    inference = Inference("detection.pt")
+    inference = Inference("detection.pt", "keypoint.pt")
     inference.process_one_frame(
         source_path="/Users/vishwa/Documents/Projects/football/model/tests/test.mp4",
         target_path="output.mp4",
         callback="detection",
-        stride=10
+        stride=60
     )
+    # inference.process(
+    #     source_path="/Users/vishwa/Documents/Projects/football/model/tests/t.mp4",
+    #     target_path="output.mp4",
+    #     callback="homography",
+    #     stride=60,
+    #     only_homography=False
+    # )
     # a = inference.crop(
     #     source_path="/Users/vishwa/Documents/Projects/football/model/tests/test.mp4",
     #     stride=60
