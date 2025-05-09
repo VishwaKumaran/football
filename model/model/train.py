@@ -8,13 +8,6 @@ class Trainer:
         self.__model = YOLO(model_name, task)
 
     def train(self, data: str, epochs: int = 100, imgsz: int = 640, batch_size: int = 16) -> None:
-        """
-        Train the YOLO model.
-
-        Args:
-            data (str): Path to the dataset YAML file.
-            epochs (int): Number of training epochs. Default is 100.
-        """
         return self.__model.train(data=data, epochs=epochs, imgsz=imgsz, batch=batch_size, device=settings.DEVICE)
 
 
