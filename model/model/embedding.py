@@ -1,6 +1,6 @@
-from more_itertools import chunked
 import numpy as np
 import torch
+from more_itertools import chunked
 from transformers import AutoProcessor, SiglipVisionModel
 
 from core import settings
@@ -17,6 +17,7 @@ class Embedding:
         with torch.no_grad():
             for batch in chunked(images, self.__batch_size):
                 inputs = self.__processor(images=batch, return_tensors="pt").to(settings.DEVICE)
+                inputs = {k: v.to(settings.DEVICE) for k, v in inputs.items()}
                 outputs = self.__siglip_model(**inputs)
                 embeddings = torch.mean(outputs.last_hidden_state, dim=1).cpu().numpy()
                 data.append(embeddings)
