@@ -2,8 +2,9 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from random import shuffle
 
-from sklearn.cluster import KMeans
 import umap
+from sklearn.cluster import KMeans
+
 from core import settings
 from model.embedding import Embedding
 
@@ -30,6 +31,7 @@ class TeamClassifier(Embedding):
         return dataset
 
     def fit(self, dataset: list):
+        shuffle(dataset)
         train_embeddings = self.get_embeddings(dataset)
         projections = self.__umap.fit_transform(train_embeddings)
         self.__kmeans.fit(projections)
