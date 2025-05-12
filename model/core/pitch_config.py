@@ -31,55 +31,55 @@ class PitchConfig(BaseSettings):
         spot = self.PENALTY_SPOT_DISTANCE
         return [
             (0, 0),  # 1
-            (0, (self.WIDTH - self.PENALTY_BOX_WIDTH) / 2),  # 2
-            (0, (self.WIDTH - self.GOAL_BOX_WIDTH) / 2),  # 3
-            (0, (self.WIDTH + self.GOAL_BOX_WIDTH) / 2),  # 4
-            (0, (self.WIDTH + self.PENALTY_BOX_WIDTH) / 2),  # 5
-            (0, self.WIDTH),  # 6
-            (self.GOAL_BOX_LENGTH, (self.WIDTH - self.GOAL_BOX_WIDTH) / 2),  # 7
-            (self.GOAL_BOX_LENGTH, (self.WIDTH + self.GOAL_BOX_WIDTH) / 2),  # 8
-            (self.PENALTY_SPOT_DISTANCE, self.WIDTH / 2),  # 9
-            (self.PENALTY_BOX_LENGTH, (self.WIDTH - self.PENALTY_BOX_WIDTH) / 2),  # 10
-            (self.PENALTY_BOX_LENGTH, (self.WIDTH - self.GOAL_BOX_WIDTH) / 2),  # 11
-            (self.PENALTY_BOX_LENGTH, (self.WIDTH + self.GOAL_BOX_WIDTH) / 2),  # 12
-            (self.PENALTY_BOX_LENGTH, (self.WIDTH + self.PENALTY_BOX_WIDTH) / 2),  # 13
-            (self.LENGTH / 2, 0),  # 14
-            (self.LENGTH / 2, self.WIDTH / 2 - self.CENTRE_CIRCLE_RADIUS),  # 15
-            (self.LENGTH / 2, self.WIDTH / 2 + self.CENTRE_CIRCLE_RADIUS),  # 16
-            (self.LENGTH / 2, self.WIDTH),  # 17
+            (0, (w - pbw) / 2),  # 2
+            (0, (w - gbw) / 2),  # 3
+            (0, (w + gbw) / 2),  # 4
+            (0, (w + pbw) / 2),  # 5
+            (0, w),  # 6
+            (gbl, (w - gbw) / 2),  # 7
+            (gbl, (w + gbw) / 2),  # 8
+            (spot, w / 2),  # 9
+            (pbl, (w - pbw) / 2),  # 10
+            (pbl, (w - gbw) / 2),  # 11
+            (pbl, (w + gbw) / 2),  # 12
+            (pbl, (w + pbw) / 2),  # 13
+            (l / 2, 0),  # 14
+            (l / 2, w / 2 - center),  # 15
+            (l / 2, w / 2 + center),  # 16
+            (l / 2, w),  # 17
             (
-                self.LENGTH - self.PENALTY_BOX_LENGTH,
-                (self.WIDTH - self.PENALTY_BOX_WIDTH) / 2
+                l - pbl,
+                (w - pbw) / 2
             ),  # 18
             (
-                self.LENGTH - self.PENALTY_BOX_LENGTH,
-                (self.WIDTH - self.GOAL_BOX_WIDTH) / 2
+                l - pbl,
+                (w - gbw) / 2
             ),  # 19
             (
-                self.LENGTH - self.PENALTY_BOX_LENGTH,
-                (self.WIDTH + self.GOAL_BOX_WIDTH) / 2
+                l - pbl,
+                (w + gbw) / 2
             ),  # 20
             (
-                self.LENGTH - self.PENALTY_BOX_LENGTH,
-                (self.WIDTH + self.PENALTY_BOX_WIDTH) / 2
+                l - pbl,
+                (w + pbw) / 2
             ),  # 21
-            (self.LENGTH - self.PENALTY_SPOT_DISTANCE, self.WIDTH / 2),  # 22
+            (l - spot, w / 2),  # 22
             (
-                self.LENGTH - self.GOAL_BOX_LENGTH,
-                (self.WIDTH - self.GOAL_BOX_WIDTH) / 2
+                l - gbl,
+                (w - gbw) / 2
             ),  # 23
             (
-                self.LENGTH - self.GOAL_BOX_LENGTH,
-                (self.WIDTH + self.GOAL_BOX_WIDTH) / 2
+                l - gbl,
+                (w + gbw) / 2
             ),  # 24
-            (self.LENGTH, 0),  # 25
-            (self.LENGTH, (self.WIDTH - self.PENALTY_BOX_WIDTH) / 2),  # 26
-            (self.LENGTH, (self.WIDTH - self.GOAL_BOX_WIDTH) / 2),  # 27
-            (self.LENGTH, (self.WIDTH + self.GOAL_BOX_WIDTH) / 2),  # 28
-            (self.LENGTH, (self.WIDTH + self.PENALTY_BOX_WIDTH) / 2),  # 29
-            (self.LENGTH, self.WIDTH),  # 30
-            (self.LENGTH / 2 - self.CENTRE_CIRCLE_RADIUS, self.WIDTH / 2),  # 31
-            (self.LENGTH / 2 + self.CENTRE_CIRCLE_RADIUS, self.WIDTH / 2),  # 32
+            (l, 0),  # 25
+            (l, (w - pbw) / 2),  # 26
+            (l, (w - gbw) / 2),  # 27
+            (l, (w + gbw) / 2),  # 28
+            (l, (w + pbw) / 2),  # 29
+            (l, w),  # 30
+            (l / 2 - center, w / 2),  # 31
+            (l / 2 + center, w / 2),  # 32
         ]
 
     @classmethod
@@ -130,8 +130,16 @@ class PitchConfig(BaseSettings):
                 PENALTY_BOX_WIDTH=3000,
                 EDGES=[(1, 6), (6, 30), (30, 25), (25, 24), (24, 13), (13, 14), (14, 15), (15, 16),
                        (16, 29), (29, 28), (28, 27), (27, 26), (26, 1)],
-                LABELS=[],
-                COLORS=[],
+                LABELS=[
+                    "01", "06", "30", "25", "24", "13", "14", "15", "16", "29", "28", "27", "26"
+                ],
+                COLORS=[
+                           "#FF1493" for _ in range(5)
+                       ] + [
+                           "#00BFFF" for _ in range(4)
+                       ] + [
+                           "#FF6347" for _ in range(4)
+                       ],
             )
 
         elif pitch_type == PitchType.KINGS_LEAGUE:
@@ -146,8 +154,16 @@ class PitchConfig(BaseSettings):
                 PENALTY_BOX_WIDTH=2000,
                 EDGES=[(1, 6), (6, 30), (30, 25), (25, 24), (24, 13), (13, 14), (14, 15), (15, 16),
                        (16, 29), (29, 28), (28, 27), (27, 26), (26, 1)],
-                LABELS=[],
-                COLORS=[],
+                LABELS=[
+                    "01", "06", "30", "25", "24", "13", "14", "15", "16", "29", "28", "27", "26"
+                ],
+                COLORS=[
+                           "#FFD700" for _ in range(5)
+                       ] + [
+                           "#00BFFF" for _ in range(4)
+                       ] + [
+                           "#8A2BE2" for _ in range(4)
+                       ],
             )
 
         raise ValueError(f"Unknown pitch type: {pitch_type}")
