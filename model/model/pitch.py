@@ -77,6 +77,53 @@ class Pitch:
 
         return img
 
+    def draw_voronoi(
+            self,
+            team_1_xy: np.ndarray,
+            team_2_xy: np.ndarray,
+            team_1_color=sv.Color.RED,
+            team_2_color=sv.Color.BLUE,
+            opacity=0.5,
+            image=None,
+    ):
+        img = self.__pitch_img.copy() if image is None else image.copy()
+
+        scaled_width = int(self.scale * self.config.WIDTH)
+        scaled_length = int(self.scale * self.config.LENGTH)
+
+        voronoi = np.zeros_like(img, dtype=np.uint8)
+
+        team_1_color_bg = np.array(team_1_color.as_bgr(), dtype=np.uint8)
+        team_2_color_bg = np.array(team_2_color.as_bgr(), dtype=np.uint8)
+
+        y_coordinates, x_coordinates = np.indices((
+            scaled_width + 2 * self.padding,
+            scaled_length + 2 * self.padding
+        ))
+
+        y_coordinates -= self.padding
+        x_coordinates -= self.padding
+
+        def calculate_distances(xy, x, y):
+            return np.sqrt((xy[:, 0][:, None, None] * self.scale - x) ** 2 +
+                           (xy[:, 1][:, None, None] * self.scale - y) ** 2)
+
+        distances_team_1 = calculate_distances(team_1_xy, x_coordinates, y_coordinates)
+        distances_team_2 = calculate_distances(team_2_xy, x_coordinates, y_coordinates)
+
+        min_distances_team_1 = np.min(distances_team_1, axis=0)
+        min_distances_team_2 = np.min(distances_team_2, axis=0)
+
+        control_mask = min_distances_team_1 < min_distances_team_2
+
+        voronoi[control_mask] = team_1_color_bg
+        voronoi[~control_mask] = team_2_color_bg
+
+        overlay = cv2.addWeighted(voronoi, opacity, img, 1 - opacity, 0)
+
+        return overlay
+
+
     def get_transform(self, source: np.ndarray, target: np.ndarray = None, mask: np.ndarray = None) -> callable:
         if target is None:
             target = np.array(self.config.vertices)
