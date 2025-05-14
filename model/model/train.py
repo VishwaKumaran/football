@@ -5,7 +5,7 @@ from ultralytics import YOLO
 from ultralytics.data.annotator import auto_annotate
 
 from core import settings
-from core.tools import convert_seg_to_bbox, visualize_image
+from core.tools import convert_seg_to_bbox
 
 
 class Trainer:
@@ -13,7 +13,7 @@ class Trainer:
         self.__model = YOLO(model_name, task)
 
     @staticmethod
-    def annotate_dataset(data: str, output_dir: str, model_name: str, sam_model: str, classes: List[str] = None,
+    def annotate_dataset(data: str, output_dir: str, model_name: str, sam_model: str, classes: List[int] = None,
                          confidence: float = 0.25, ):
         auto_annotate(
             data, model_name, device=settings.DEVICE, output_dir=output_dir, classes=classes, conf=confidence,
@@ -39,15 +39,16 @@ if __name__ == "__main__":
     # print(trainer_keypoint.train(data=settings.KEYPOINT_DATASET, epochs=100, imgsz=640, batch_size=32))
     # print("Training finished.")
 
-    # print(Trainer.annotate_dataset(
-    #     "/Users/vishwa/Documents/Projects/football/model/tests/images",
-    #     "/Users/vishwa/Documents/Projects/football/model/tests/output",
-    #     "/Users/vishwa/Documents/Projects/football/model/detection.pt",
-    #     "sam2_t.pt"
-    # ))
+    print(Trainer.annotate_dataset(
+        "/Users/vishwa/Documents/Projects/football/model/tests/images",
+        "/Users/vishwa/Documents/Projects/football/model/tests/output",
+        "/Users/vishwa/Documents/Projects/football/model/detection.pt",
+        "sam2_t.pt",
+        [0]
+    ))
 
-    visualize_image(
-        {0: "ball", 1: "goalkeeper", 2: "player", 3: "referee"},
-        "/Users/vishwa/Documents/Projects/football/model/tests/images/2e57b9_1_8_png.rf.eddb5d52cda524e90e21bc091077ef2d.jpg",
-        "/Users/vishwa/Documents/Projects/football/model/tests/output/2e57b9_1_8_png.rf.eddb5d52cda524e90e21bc091077ef2d.txt",
-    )
+    # visualize_image(
+    #     {0: "ball"},
+    #     "/Users/vishwa/Documents/Projects/football/model/tests/images/2e57b9_1_8_png.rf.eddb5d52cda524e90e21bc091077ef2d.jpg",
+    #     "/Users/vishwa/Documents/Projects/football/model/tests/output/2e57b9_1_8_png.rf.eddb5d52cda524e90e21bc091077ef2d.txt",
+    # )
