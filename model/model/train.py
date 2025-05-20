@@ -23,8 +23,9 @@ class Trainer:
             if file.endswith(".txt"):
                 convert_seg_to_bbox(os.path.join(output_dir, file))
 
-    def train(self, data: str, epochs: int = 100, imgsz: int = 640, batch_size: int = 16) -> None:
-        return self.__model.train(data=data, epochs=epochs, imgsz=imgsz, batch=batch_size, device=settings.DEVICE)
+    def train(self, data: str, epochs: int = 100, imgsz: int = 640, batch_size: int = -1) -> None:
+        return self.__model.train(data=data, epochs=epochs, imgsz=imgsz, batch=batch_size, device=settings.DEVICE,
+                                  cache="disk")
 
 
 if __name__ == "__main__":
