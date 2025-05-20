@@ -123,7 +123,6 @@ class Pitch:
 
         return overlay
 
-
     def get_transform(self, source: np.ndarray, target: np.ndarray = None, mask: np.ndarray = None) -> callable:
         if target is None:
             target = np.array(self.config.vertices)
@@ -134,8 +133,6 @@ class Pitch:
 
         target = target.astype(np.float32)
         source = source.astype(np.float32)
-
-        print("Source", source.shape, "Target", target.shape)
 
         if source.shape != target.shape or source.shape[1] != 2:
             raise ValueError("Source and target must have the same shape and be 2D coordinates.")

@@ -14,6 +14,9 @@ class Inference:
         self.__detection_model = YOLO(detection_model_name).to(settings.DEVICE)
         self.__keypoint_model = YOLO(keypoint_model_name).to(settings.DEVICE)
 
+        self.__last_positions = {}
+        self.__speeds = {}
+
     def __predict(self, model: YOLO, frame: np.ndarray):
         return model.predict(source=frame, verbose=False)[0]
 
@@ -36,7 +39,7 @@ class Inference:
         player_detections.class_id = team_classifier.predict(player_crops)
         return player_detections
 
-    def __process_frame_with_detections(self, frame: np.ndarray, tracker, team_classifier, pitch):
+    def __process_frame_with_detections(self, frame: np.ndarray, tracker, team_classifier, pitch, fps):
         results = self.__predict(self.__detection_model, frame)
         keypoint_results = self.__predict(self.__keypoint_model, frame)
         detections = sv.Detections.from_ultralytics(results)
@@ -53,6 +56,20 @@ class Inference:
         mask = (key_points.xy[0][:, 0] > 1) & (key_points.xy[0][:, 1] > 1)
         transformer = pitch.get_transform(key_points.xy[0], mask=mask)
 
+        player_coords = player_goalkeeper_detections.get_anchors_coordinates(sv.Position.BOTTOM_CENTER)
+        transformed_coords = transformer(player_coords)
+
+        for i, tracker_id in enumerate(player_goalkeeper_detections.tracker_id):
+            if tracker_id is None:
+                continue
+            pos = transformed_coords[i]
+            if tracker_id in self.__last_positions:
+                last_pos = self.__last_positions[tracker_id]
+                distance = np.linalg.norm(pos - last_pos) / 100
+                speed = distance * fps
+                self.__speeds[tracker_id] = speed
+            self.__last_positions[tracker_id] = pos
+
         return {
             "key_points": key_points,
             "transformer": transformer,
@@ -60,6 +77,12 @@ class Inference:
             "ball_detections": ball_detections,
             "referee_detections": referee_detections
         }
+
+    def __get_fps(self, source_path: str):
+        cap = cv2.VideoCapture(source_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()
+        return fps
 
     def detection(self, source_path: str, stride: int = 1):
         pitch = Pitch()
@@ -78,13 +101,18 @@ class Inference:
         team_classifier = TeamClassifier()
         team_classifier.fit(crops)
 
+        fps = self.__get_fps(source_path)
+
         def callback(frame: np.ndarray, _: int) -> np.ndarray:
-            data = self.__process_frame_with_detections(frame, tracker, team_classifier, pitch)
+            data = self.__process_frame_with_detections(frame, tracker, team_classifier, pitch, fps)
 
             all_player_detections = data["player_goalkeeper_detections"]
             all_player_detections.class_id = all_player_detections.class_id.astype(int)
 
-            labels = [str(tid) for tid in all_player_detections.tracker_id]
+            labels = [
+                f"{tid} | {self.__speeds.get(tid, 0) * 3.6:.2f} km/h"
+                for tid in all_player_detections.tracker_id
+            ]
 
             conf_filter = data["key_points"].confidence[0] > 0.5
             frame_points = data["key_points"].xy[0][conf_filter]
@@ -119,8 +147,10 @@ class Inference:
         team_classifier = TeamClassifier()
         team_classifier.fit(crops)
 
+        fps = self.__get_fps(source_path)
+
         def callback(frame: np.ndarray, _: int) -> np.ndarray:
-            data = self.__process_frame_with_detections(frame, tracker, team_classifier, pitch)
+            data = self.__process_frame_with_detections(frame, tracker, team_classifier, pitch, fps)
 
             def transform_and_draw(detections, color_hex, radius=16, image=None):
                 coords = data["transformer"](detections.get_anchors_coordinates(sv.Position.BOTTOM_CENTER))
@@ -151,8 +181,10 @@ class Inference:
         team_classifier = TeamClassifier()
         team_classifier.fit(crops)
 
+        fps = self.__get_fps(source_path)
+
         def callback(frame: np.ndarray, _: int) -> np.ndarray:
-            data = self.__process_frame_with_detections(frame, tracker, team_classifier, pitch)
+            data = self.__process_frame_with_detections(frame, tracker, team_classifier, pitch, fps)
             transform = data["transformer"]
             detections = data["player_goalkeeper_detections"]
             mask_team_0 = detections.class_id == 0
@@ -243,7 +275,7 @@ if __name__ == "__main__":
     inference = Inference("/Users/vishwa/Documents/Projects/football/model/detection.pt",
                           "/Users/vishwa/Documents/Projects/football/model/keypoint.pt")
 
-    inference.process_real_time("/Users/vishwa/Documents/Projects/football/model/tests/test.mp4", "voronoi", 60)
+    # inference.process_real_time("/Users/vishwa/Documents/Projects/football/model/tests/test.mp4", "detection", 60)
 
     # inference.process_one_frame(
     #     source_path="/Users/vishwa/Documents/Projects/football/model/tests/test.mp4",
@@ -252,12 +284,12 @@ if __name__ == "__main__":
     #     stride=60
     # )
 
-    # inference.process(
-    #     source_path="/Users/vishwa/Documents/Projects/football/model/tests/t.mp4",
-    #     target_path="/Users/vishwa/Documents/Projects/football/model/tests/output.mp4",
-    #     callback="voronoi",
-    #     stride=60,
-    # )
+    inference.process(
+        source_path="/Users/vishwa/Documents/Projects/football/model/tests/t.mp4",
+        target_path="/Users/vishwa/Documents/Projects/football/model/tests/output.mp4",
+        callback="detection",
+        stride=60,
+    )
     # inference.process(
     #     source_path="/Users/vishwa/Documents/Projects/football/model/tests/t.mp4",
     #     target_path="output.mp4",
