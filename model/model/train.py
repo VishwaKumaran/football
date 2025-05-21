@@ -23,9 +23,9 @@ class Trainer:
             if file.endswith(".txt"):
                 convert_seg_to_bbox(os.path.join(output_dir, file))
 
-    def train(self, data: str, epochs: int = 100, imgsz: int = 640, batch_size: int = -1) -> None:
+    def train(self, data: str, epochs: int = 100, imgsz: int = 640, batch_size: int = -1, **kwargs) -> None:
         return self.__model.train(data=data, epochs=epochs, imgsz=imgsz, batch=batch_size, device=settings.DEVICE,
-                                  cache="disk")
+                                  cache="disk", **kwargs)
 
 
 if __name__ == "__main__":
@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # trainer_keypoint = Trainer(settings.KEYPOINT_MODEL_NAME)
     # print("Training started...")
-    # print(trainer_keypoint.train(data=settings.KEYPOINT_DATASET, epochs=100, imgsz=640, batch_size=32))
+    # print(trainer_keypoint.train(data=settings.KEYPOINT_DATASET, epochs=100, imgsz=640, batch_size=32, mosaic=0.0))
     # print("Training finished.")
 
     print(Trainer.annotate_dataset(

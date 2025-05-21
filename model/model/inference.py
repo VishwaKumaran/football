@@ -16,6 +16,7 @@ class Inference:
 
         self.__last_positions = {}
         self.__speeds = {}
+        self.__distances = {}
 
     def __predict(self, model: YOLO, frame: np.ndarray):
         return model.predict(source=frame, verbose=False)[0]
@@ -53,8 +54,21 @@ class Inference:
         ball_detections = detections[detections.class_id == settings.BALL_CLASS_ID]
         referee_detections = detections[detections.class_id == settings.REFEREE_CLASS_ID]
 
-        mask = (key_points.xy[0][:, 0] > 1) & (key_points.xy[0][:, 1] > 1)
-        transformer = pitch.get_transform(key_points.xy[0], mask=mask)
+        conf_threshold = 0.8
+        conf_filter = key_points.confidence[0] > conf_threshold
+
+        frame_points = key_points.xy[0][conf_filter]
+        pitch_points = np.array(pitch.config.vertices)[conf_filter]
+
+        if len(frame_points) >= 4:
+            transformer = pitch.get_transform(frame_points, pitch_points)
+            self.__last_transformer = transformer
+        else:
+            if hasattr(self, "__last_transformer"):
+                transformer = self.__last_transformer
+            else:
+                mask = (key_points.xy[0][:, 0] > 1) & (key_points.xy[0][:, 1] > 1)
+                transformer = pitch.get_transform(key_points.xy[0], mask=mask)
 
         player_coords = player_goalkeeper_detections.get_anchors_coordinates(sv.Position.BOTTOM_CENTER)
         transformed_coords = transformer(player_coords)
@@ -68,6 +82,10 @@ class Inference:
                 distance = np.linalg.norm(pos - last_pos) / 100
                 speed = distance * fps
                 self.__speeds[tracker_id] = speed
+
+                if not tracker_id in self.__distances:
+                    self.__distances[tracker_id] = 0
+                self.__distances[tracker_id] += distance
             self.__last_positions[tracker_id] = pos
 
         return {
@@ -110,19 +128,12 @@ class Inference:
             all_player_detections.class_id = all_player_detections.class_id.astype(int)
 
             labels = [
-                f"{tid} | {self.__speeds.get(tid, 0) * 3.6:.2f} km/h"
+                f"{tid} | {self.__speeds.get(tid, 0) * 3.6:.2f} km/h | {self.__distances.get(tid, 0):.1f}m"
                 for tid in all_player_detections.tracker_id
             ]
 
-            conf_filter = data["key_points"].confidence[0] > 0.5
-            frame_points = data["key_points"].xy[0][conf_filter]
-            pitch_points = np.array(pitch.config.vertices)[conf_filter]
-
-            transformer = pitch.get_transform(pitch_points, frame_points)
-            transformed_keypoints = sv.KeyPoints(xy=transformer(np.array(pitch.config.vertices))[np.newaxis])
-
             annotated = player_annotator.annotate(frame, detections=all_player_detections)
-            annotated = edge_annotator.annotate(annotated, key_points=transformed_keypoints)
+            annotated = edge_annotator.annotate(annotated, key_points=data["key_points"])
             annotated = referee_annotator.annotate(annotated, detections=data["referee_detections"])
             annotated = label_annotator.annotate(annotated, detections=all_player_detections, labels=labels)
             annotated = triangle_annotator.annotate(annotated, detections=data["ball_detections"])
